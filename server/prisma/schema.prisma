@@ -1,0 +1,138 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─── UTILISATEUR ───────────────────────────────────────────────
+model User {
+  id             String    @id @default(cuid())
+  email          String    @unique
+  pseudo         String    @unique
+  password       String
+  avatar         String?   // URL de la photo de profil (Cloudinary)
+  isOnline       Boolean   @default(false)
+  lastSeen       DateTime  @default(now())
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  // Relations
+  sentMessages      Message[]       @relation("MessageSender")
+  members           GroupMember[]
+  conversations1    Conversation[]  @relation("ConversationUser1")
+  conversations2    Conversation[]  @relation("ConversationUser2")
+  refreshTokens     RefreshToken[]
+
+  @@map("users")
+}
+
+// ─── TOKEN DE REFRESH (auth moderne) ───────────────────────────
+model RefreshToken {
+  id        String   @id @default(cuid())
+  token     String   @unique
+  userId    String
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("refresh_tokens")
+}
+
+// ─── CONVERSATION 1-À-1 ────────────────────────────────────────
+model Conversation {
+  id        String   @id @default(cuid())
+  user1Id   String
+  user2Id   String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user1    User      @relation("ConversationUser1", fields: [user1Id], references: [id])
+  user2    User      @relation("ConversationUser2", fields: [user2Id], references: [id])
+  messages Message[]
+
+  @@unique([user1Id, user2Id])  // une seule conv entre deux mêmes users
+  @@map("conversations")
+}
+
+// ─── GROUPE ────────────────────────────────────────────────────
+model Group {
+  id          String   @id @default(cuid())
+  name        String
+  avatar      String?
+  createdById String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  members  GroupMember[]
+  messages Message[]
+
+  @@map("groups")
+}
+
+// ─── MEMBRES D'UN GROUPE ───────────────────────────────────────
+model GroupMember {
+  id       String   @id @default(cuid())
+  userId   String
+  groupId  String
+  role     Role     @default(MEMBER)
+  joinedAt DateTime @default(now())
+
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  group Group @relation(fields: [groupId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, groupId])  // un user ne peut pas être deux fois dans le même groupe
+  @@map("group_members")
+}
+
+// ─── MESSAGE ───────────────────────────────────────────────────
+model Message {
+  id             String      @id @default(cuid())
+  content        String?     // null si c'est un fichier/vocal sans texte
+  type           MessageType @default(TEXT)
+  fileUrl        String?     // URL Cloudinary pour photos/vidéos/vocaux
+  fileName       String?     // nom original du fichier
+  senderId       String
+  conversationId String?     // rempli si message 1-à-1
+  groupId        String?     // rempli si message de groupe
+  isRead         Boolean     @default(false)
+  createdAt      DateTime    @default(now())
+
+  sender       User          @relation("MessageSender", fields: [senderId], references: [id])
+  conversation Conversation? @relation(fields: [conversationId], references: [id])
+  group        Group?        @relation(fields: [groupId], references: [id])
+  reactions    Reaction[]
+
+  @@map("messages")
+}
+
+// ─── RÉACTIONS ─────────────────────────────────────────────────
+model Reaction {
+  id        String   @id @default(cuid())
+  emoji     String
+  userId    String
+  messageId String
+  createdAt DateTime @default(now())
+
+  message Message @relation(fields: [messageId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, messageId, emoji])  // un user ne peut pas mettre deux fois le même emoji
+  @@map("reactions")
+}
+
+// ─── ENUMS ─────────────────────────────────────────────────────
+enum MessageType {
+  TEXT
+  IMAGE
+  VIDEO
+  AUDIO
+  FILE
+}
+
+enum Role {
+  ADMIN
+  MEMBER
+}
