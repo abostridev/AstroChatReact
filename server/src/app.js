@@ -9,6 +9,7 @@ import authRoutes from './routes/auth.js'
 import userRoutes from './routes/users.js'
 import conversationRoutes from './routes/conversations.js'
 import groupRoutes from './routes/groups.js'
+import uploadRoutes from './routes/upload.js'
 
 const app = express()
 const httpServer = createServer(app)
@@ -30,6 +31,7 @@ app.use('/api/auth', authRoutes)
 app.use('/api/users', userRoutes)
 app.use('/api/conversations', conversationRoutes)
 app.use('/api/groups', groupRoutes)
+app.use('/api/upload', uploadRoutes)
 
 // Route de sante
 app.get('/health', (req, res) => {
