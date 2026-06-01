@@ -206,6 +206,196 @@ export const initSocket = (httpServer) => {
       }
     })
 
+    // ─── WEBRTC SIGNALING 1-A-1 ───────────────────────────────
+
+    // User A initie un appel vers User B
+    socket.on('call:initiate', async ({ targetUserId, conversationId, callType }) => {
+      try {
+        // callType = 'audio' ou 'video'
+        const caller = await prisma.user.findUnique({
+          where: { id: userId },
+          select: { id: true, pseudo: true, avatar: true }
+        })
+
+        // Envoie la notification d'appel entrant a User B
+        const targetSocketId = connectedUsers.get(targetUserId)
+        if (targetSocketId) {
+          io.to(targetSocketId).emit('call:incoming', {
+            callerId: userId,
+            caller,
+            conversationId,
+            callType
+          })
+        } else {
+          // User B est hors ligne
+          socket.emit('call:unavailable', { targetUserId })
+        }
+      } catch (error) {
+        console.error('Erreur call:initiate:', error)
+      }
+    })
+
+    // User B accepte l'appel
+    socket.on('call:accept', ({ callerId, conversationId }) => {
+      const callerSocketId = connectedUsers.get(callerId)
+      if (callerSocketId) {
+        io.to(callerSocketId).emit('call:accepted', { 
+          accepterId: userId,
+          conversationId 
+        })
+      }
+    })
+
+    // User B refuse l'appel
+    socket.on('call:reject', ({ callerId, conversationId }) => {
+      const callerSocketId = connectedUsers.get(callerId)
+      if (callerSocketId) {
+        io.to(callerSocketId).emit('call:rejected', { 
+          rejecterId: userId,
+          conversationId 
+        })
+      }
+    })
+
+    // Fin d'appel
+    socket.on('call:end', ({ targetUserId, conversationId }) => {
+      const targetSocketId = connectedUsers.get(targetUserId)
+      if (targetSocketId) {
+        io.to(targetSocketId).emit('call:ended', { 
+          endedBy: userId,
+          conversationId 
+        })
+      }
+    })
+
+    // ─── WEBRTC SIGNALING ECHANGE ──────────────────────────────
+    // Ces trois evenements sont le coeur de WebRTC
+    // Ils transmettent les informations de connexion entre les deux users
+
+    // Offre SDP — User A envoie sa configuration de connexion
+    socket.on('webrtc:offer', ({ targetUserId, offer, conversationId }) => {
+      const targetSocketId = connectedUsers.get(targetUserId)
+      if (targetSocketId) {
+        io.to(targetSocketId).emit('webrtc:offer', {
+          offer,
+          callerId: userId,
+          conversationId
+        })
+      }
+    })
+
+    // Reponse SDP — User B repond avec sa configuration
+    socket.on('webrtc:answer', ({ targetUserId, answer, conversationId }) => {
+      const targetSocketId = connectedUsers.get(targetUserId)
+      if (targetSocketId) {
+        io.to(targetSocketId).emit('webrtc:answer', {
+          answer,
+          answererId: userId,
+          conversationId
+        })
+      }
+    })
+
+    // ICE Candidates — echange des adresses reseau pour etablir la connexion
+    socket.on('webrtc:ice-candidate', ({ targetUserId, candidate, conversationId }) => {
+      const targetSocketId = connectedUsers.get(targetUserId)
+      if (targetSocketId) {
+        io.to(targetSocketId).emit('webrtc:ice-candidate', {
+          candidate,
+          fromUserId: userId,
+          conversationId
+        })
+      }
+    })
+
+    // ─── WEBRTC SIGNALING GROUPE ───────────────────────────────
+
+    // Initie un appel de groupe
+    socket.on('call:group:initiate', async ({ groupId, callType }) => {
+      try {
+        const caller = await prisma.user.findUnique({
+          where: { id: userId },
+          select: { id: true, pseudo: true, avatar: true }
+        })
+
+        const group = await prisma.group.findUnique({
+          where: { id: groupId },
+          include: {
+            members: {
+              where: { userId: { not: userId } },
+              select: { userId: true }
+            }
+          }
+        })
+
+        if (!group) return
+
+        // Notifie chaque membre du groupe
+        group.members.forEach(({ userId: memberId }) => {
+          const memberSocketId = connectedUsers.get(memberId)
+          if (memberSocketId) {
+            io.to(memberSocketId).emit('call:group:incoming', {
+              groupId,
+              callerId: userId,
+              caller,
+              callType
+            })
+          }
+        })
+      } catch (error) {
+        console.error('Erreur call:group:initiate:', error)
+      }
+    })
+
+    // Rejoindre un appel de groupe
+    socket.on('call:group:join', ({ groupId }) => {
+      socket.join(`call:${groupId}`)
+      // Informe les autres membres qu'un nouveau participant a rejoint
+      socket.to(`call:${groupId}`).emit('call:group:user:joined', { userId })
+    })
+
+    // Quitter un appel de groupe
+    socket.on('call:group:leave', ({ groupId }) => {
+      socket.leave(`call:${groupId}`)
+      socket.to(`call:${groupId}`).emit('call:group:user:left', { userId })
+    })
+
+    // Offre SDP pour appel de groupe
+    socket.on('webrtc:group:offer', ({ targetUserId, offer, groupId }) => {
+      const targetSocketId = connectedUsers.get(targetUserId)
+      if (targetSocketId) {
+        io.to(targetSocketId).emit('webrtc:group:offer', {
+          offer,
+          callerId: userId,
+          groupId
+        })
+      }
+    })
+
+    // Reponse SDP pour appel de groupe
+    socket.on('webrtc:group:answer', ({ targetUserId, answer, groupId }) => {
+      const targetSocketId = connectedUsers.get(targetUserId)
+      if (targetSocketId) {
+        io.to(targetSocketId).emit('webrtc:group:answer', {
+          answer,
+          answererId: userId,
+          groupId
+        })
+      }
+    })
+
+    // ICE candidates pour appel de groupe
+    socket.on('webrtc:group:ice-candidate', ({ targetUserId, candidate, groupId }) => {
+      const targetSocketId = connectedUsers.get(targetUserId)
+      if (targetSocketId) {
+        io.to(targetSocketId).emit('webrtc:group:ice-candidate', {
+          candidate,
+          fromUserId: userId,
+          groupId
+        })
+      }
+    })
+
     // ─── DECONNEXION ──────────────────────────────────────────
     socket.on('disconnect', async () => {
       console.log(`User deconnecte : ${userId}`)
