@@ -4,6 +4,8 @@ import useAuthStore from './store/authStore'
 import useThemeStore from './store/themeStore'
 import { getMe } from './api/auth'
 import Spinner from './components/ui/Spinner'
+import LoginPage from './pages/LoginPage'
+import RegisterPage from './pages/RegisterPage'
 
 const App = () => {
   const { isAuthenticated, isLoading, login, logout, setLoading } = useAuthStore()
@@ -53,7 +55,7 @@ const App = () => {
           element={
             isAuthenticated
               ? <Navigate to="/" replace />
-              : <div style={{ color: 'var(--text)', padding: '20px' }}>Page Login - bientot</div>
+              : <LoginPage />
           }
         />
         <Route
@@ -61,14 +63,14 @@ const App = () => {
           element={
             isAuthenticated
               ? <Navigate to="/" replace />
-              : <div style={{ color: 'var(--text)', padding: '20px' }}>Page Register - bientot</div>
+              : <RegisterPage />
           }
         />
         <Route
           path="/*"
           element={
             isAuthenticated
-              ? <div style={{ color: 'var(--text)', padding: '20px' }}>Page Chat - bientot</div>
+              ? <div style={{ color: 'var(--text)', padding: '20px' }}>Chat - bientot</div>
               : <Navigate to="/login" replace />
           }
         />
