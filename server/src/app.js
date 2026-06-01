@@ -7,6 +7,8 @@ import { Server } from 'socket.io'
 import { connectDB } from './config/db.js'
 import authRoutes from './routes/auth.js'
 import userRoutes from './routes/users.js'
+import conversationRoutes from './routes/conversations.js'
+import groupRoutes from './routes/groups.js'
 
 const app = express()
 const httpServer = createServer(app)
@@ -28,6 +30,8 @@ app.use(cookieParser())
 
 app.use('/api/auth', authRoutes)
 app.use('/api/users', userRoutes)
+app.use('/api/conversations', conversationRoutes)
+app.use('/api/groups', groupRoutes)
 
 app.get('/health', (req, res) => {
   res.json({ status: 'ok', message: 'AstroChat server is running' })
