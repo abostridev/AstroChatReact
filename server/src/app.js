@@ -34,7 +34,14 @@ app.get('/health', (req, res) => {
 connectDB().then(() => {
   const PORT = process.env.PORT || 5000
   httpServer.listen(PORT, () => {
-    console.log(`Serveur lancé sur le port ${PORT}`)
+    console.log(`Serveur lance sur le port ${PORT}`)
+  })
+
+  httpServer.on('error', (error) => {
+    if (error.code === 'EADDRINUSE') {
+      console.error(`Port ${PORT} deja utilise. Arretez l'autre instance et relancez.`)
+      process.exit(1)
+    }
   })
 })
 
