@@ -6,6 +6,7 @@ import { getMe } from './api/auth'
 import Spinner from './components/ui/Spinner'
 import LoginPage from './pages/LoginPage'
 import RegisterPage from './pages/RegisterPage'
+import ChatPage from './pages/ChatPage'
 
 const App = () => {
   const { isAuthenticated, isLoading, login, logout, setLoading } = useAuthStore()
@@ -70,7 +71,7 @@ const App = () => {
           path="/*"
           element={
             isAuthenticated
-              ? <div style={{ color: 'var(--text)', padding: '20px' }}>Chat - bientot</div>
+              ? <ChatPage />
               : <Navigate to="/login" replace />
           }
         />
