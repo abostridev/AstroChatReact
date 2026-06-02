@@ -2,6 +2,7 @@ import 'dotenv/config'
 import express from 'express'
 import cors from 'cors'
 import cookieParser from 'cookie-parser'
+import prisma from './config/db.js'
 import { createServer } from 'http'
 import { connectDB } from './config/db.js'
 import { initSocket } from './socket/index.js'
@@ -38,12 +39,27 @@ app.get('/health', (req, res) => {
   res.json({ status: 'ok', message: 'AstroChat server is running' })
 })
 
+// Ping toutes les 4 minutes pour garder Neon eveille
+const keepAlive = () => {
+  setInterval(async () => {
+    try {
+      await prisma.$queryRaw`SELECT 1`
+      console.log('DB keep-alive ok')
+    } catch (error) {
+      console.error('DB keep-alive erreur:', error.message)
+    }
+  }, 4 * 60 * 1000) // 4 minutes
+}
+
 // Demarrage
 connectDB().then(() => {
   const PORT = process.env.PORT || 5000
   httpServer.listen(PORT, () => {
     console.log(`Serveur lance sur le port ${PORT}`)
   })
+
+  // Demarre le keep-alive apres connexion reussie
+  keepAlive()
 
   httpServer.on('error', (error) => {
     if (error.code === 'EADDRINUSE') {
