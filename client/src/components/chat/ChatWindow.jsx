@@ -8,6 +8,7 @@ import { getGroupMessages } from '../../api/groups'
 import useChatStore from '../../store/chatStore'
 import useAuthStore from '../../store/authStore'
 import { Phone, Video, ArrowLeft } from 'lucide-react'
+import { showMessageNotification } from '../../utils/notifications'
 
 const ChatWindow = ({ socket, onStartCall, onBack, isMobile }) => {
     const { user } = useAuthStore()
@@ -19,7 +20,8 @@ const ChatWindow = ({ socket, onStartCall, onBack, isMobile }) => {
         addMessage,
         isLoadingMessages,
         setLoadingMessages,
-        updateMessageReactions
+        updateMessageReactions,
+        markMessagesAsRead
     } = useChatStore()
 
     const messagesEndRef = useRef(null)
@@ -45,6 +47,14 @@ const ChatWindow = ({ socket, onStartCall, onBack, isMobile }) => {
                     ? await getGroupMessages(active.id)
                     : await getMessages(active.id)
                 setMessages(data.messages)
+
+                // Signale que l'user a lu les messages
+                if (socket) {
+                    socket.emit('messages:read', {
+                        conversationId: isGroup ? undefined : active.id,
+                        groupId: isGroup ? active.id : undefined
+                    })
+                }
             } catch (error) {
                 console.error('Erreur chargement messages:', error)
             } finally {
@@ -68,8 +78,24 @@ const ChatWindow = ({ socket, onStartCall, onBack, isMobile }) => {
     useEffect(() => {
         if (!socket || !active) return
 
+        // Quand l'autre user lit les messages — met a jour les ticks
+        const handleMessagesRead = ({ conversationId, groupId, readBy }) => {
+            if (readBy !== user.id) {
+                markMessagesAsRead(conversationId, groupId)
+            }
+        }
+
+        socket.on('messages:read', handleMessagesRead)
+
         const handleNewMessage = (message) => {
             addMessage(message)
+            // Notifie si le message vient de quelqu'un d'autre
+            if (message.senderId !== user.id) {
+                showMessageNotification(
+                    message.sender?.pseudo,
+                    message
+                )
+            }
         }
 
         const handleTypingStart = ({ userId }) => {
@@ -102,6 +128,7 @@ const ChatWindow = ({ socket, onStartCall, onBack, isMobile }) => {
             socket.off('typing:start', handleTypingStart)
             socket.off('typing:stop', handleTypingStop)
             socket.off('reaction:updated', handleReactionUpdated)
+            socket.off('messages:read', handleMessagesRead)
         }
     }, [socket, active?.id])
 
@@ -247,7 +274,10 @@ const ChatWindow = ({ socket, onStartCall, onBack, isMobile }) => {
                 </div>
 
                 <button
-                    onClick={() => onStartCall('audio')}
+                    onClick={() => {
+                        console.log('Bouton telephone clique')
+                        onStartCall('audio')
+                    }}
                     style={{
                         background: 'none',
                         border: 'none',
@@ -264,7 +294,10 @@ const ChatWindow = ({ socket, onStartCall, onBack, isMobile }) => {
                     <Phone size={18} />
                 </button>
                 <button
-                    onClick={() => onStartCall('video')}
+                    onClick={() => {
+                        console.log('Bouton video clique')
+                        onStartCall('video')
+                    }}
                     style={{
                         background: 'none',
                         border: 'none',
@@ -280,21 +313,7 @@ const ChatWindow = ({ socket, onStartCall, onBack, isMobile }) => {
                 >
                     <Video size={18} />
                 </button>
-                <button
-                    onClick={() => onStartCall('video')}
-                    style={{
-                        background: 'none',
-                        border: 'none',
-                        color: 'var(--accent)',
-                        cursor: 'pointer',
-                        fontSize: '18px',
-                        padding: '6px',
-                        borderRadius: '8px',
-                        flexShrink: 0
-                    }}
-                >
-                    📹
-                </button>
+
             </div>
 
             {/* Messages */}
@@ -359,9 +378,7 @@ const ChatWindow = ({ socket, onStartCall, onBack, isMobile }) => {
             </div>
 
             {/* Input */}
-            <div onChange={handleTyping}>
-                <MessageInput onSend={handleSend} />
-            </div>
+            <MessageInput onSend={handleSend} onTyping={handleTyping} />
         </div>
     )
 }

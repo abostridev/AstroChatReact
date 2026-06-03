@@ -38,6 +38,19 @@ const useChatStore = create((set) => ({
     )
   })),
 
+  // Marque tous les messages d'une conversation comme lus
+markMessagesAsRead: (conversationId, groupId) => set((state) => ({
+  messages: state.messages.map(msg => {
+    if (conversationId && msg.conversationId === conversationId) {
+      return { ...msg, isRead: true }
+    }
+    if (groupId && msg.groupId === groupId) {
+      return { ...msg, isRead: true }
+    }
+    return msg
+  })
+})),
+
   // Met a jour le dernier message d'une conversation dans la liste
   updateConversationLastMessage: (conversationId, message) => set((state) => ({
     conversations: state.conversations.map(conv =>
