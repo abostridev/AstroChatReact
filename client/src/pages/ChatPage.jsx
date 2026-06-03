@@ -14,7 +14,9 @@ import { logout as logoutApi } from '../api/auth'
 import { searchUsers } from '../api/users'
 import { createConversation } from '../api/conversations'
 import { createGroup } from '../api/groups'
-import { Plus, MessageSquare, Users, LogOut, Sun, Moon } from 'lucide-react'
+import { Plus, LogOut, Sun, Moon } from 'lucide-react'
+import CallScreen from '../components/call/CallScreen'
+import { requestNotificationPermission, showCallNotification } from '../utils/notifications'
 
 const ChatPage = () => {
     const { user, logout } = useAuthStore()
@@ -40,13 +42,11 @@ const ChatPage = () => {
     const [groupName, setGroupName] = useState('')
     const [selectedUsers, setSelectedUsers] = useState([])
     const [searching, setSearching] = useState(false)
+    const [activeCall, setActiveCall] = useState(null)
 
-    // Sur mobile on affiche soit la liste soit le chat
     const hasActiveChat = activeConversation || activeGroup
     const showList = isMobile ? !hasActiveChat : true
     const showChat = isMobile ? hasActiveChat : true
-
-    // Largeur de la sidebar
     const sidebarWidth = isMobile ? '100%' : isTablet ? '280px' : '320px'
 
     useEffect(() => {
@@ -54,8 +54,53 @@ const ChatPage = () => {
         const s = io(import.meta.env.VITE_SOCKET_URL || 'http://localhost:5000', {
             auth: { token }
         })
+
         s.on('connect', () => console.log('Socket connecte'))
+        s.on('connect', () => {
+            console.log('Socket connecte')
+            requestNotificationPermission()
+        })
         s.on('connect_error', (err) => console.error('Socket erreur:', err.message))
+
+        s.on('call:incoming', ({ caller, callType }) => {
+            // Affiche la notification si l'app est en arriere-plan
+            showCallNotification(
+                caller.pseudo,
+                callType,
+                () => {
+                    // Accepter depuis la notification
+                    setActiveCall({
+                        targetUser: caller,
+                        callType,
+                        isIncoming: true,
+                        isGroup: false,
+                        autoAccept: true
+                    })
+                },
+                () => {
+                    // Refuser depuis la notification
+                    s.emit('call:reject', { callerId: caller.id })
+                }
+            )
+
+            setActiveCall({
+                targetUser: caller,
+                callType,
+                isIncoming: true,
+                isGroup: false
+            })
+        })
+
+        s.on('call:group:incoming', ({ groupId, caller, callType }) => {
+            setActiveCall({
+                targetUser: caller,
+                callType,
+                isIncoming: true,
+                isGroup: true,
+                groupName: groups.find(g => g.id === groupId)?.name || 'Groupe'
+            })
+        })
+
         setSocket(s)
         return () => s.disconnect()
     }, [])
@@ -129,7 +174,23 @@ const ChatPage = () => {
     }
 
     const handleStartCall = (callType) => {
-        console.log('Appel', callType)
+        const active = activeConversation || activeGroup
+        if (!active) return
+
+        const isGroup = !!activeGroup
+        const otherUser = !isGroup && activeConversation
+            ? (activeConversation.user1Id === user.id
+                ? activeConversation.user2
+                : activeConversation.user1)
+            : null
+
+        setActiveCall({
+            targetUser: otherUser,
+            callType,
+            isIncoming: false,
+            isGroup,
+            groupName: isGroup ? active.name : null
+        })
     }
 
     return (
@@ -141,7 +202,7 @@ const ChatPage = () => {
             position: 'relative'
         }}>
 
-            {/* SIDEBAR — liste des conversations */}
+            {/* SIDEBAR */}
             {showList && (
                 <div style={{
                     width: sidebarWidth,
@@ -184,10 +245,7 @@ const ChatPage = () => {
                                 }}
                                 title={theme === 'multicolor' ? 'Theme chaud' : 'Theme neon'}
                             >
-                                {theme === 'multicolor'
-                                    ? <Sun size={16} />
-                                    : <Moon size={16} />
-                                }
+                                {theme === 'multicolor' ? <Sun size={16} /> : <Moon size={16} />}
                             </button>
                             <button
                                 onClick={() => setShowNewChat(true)}
@@ -230,7 +288,7 @@ const ChatPage = () => {
                     }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                             <Avatar user={user} size={28} />
-                            <span style={{ fontSize: '12px', color: 'var(--text2)' }}>
+                            <span translate="no" style={{ fontSize: '12px', color: 'var(--text2)' }}>
                                 @{user?.pseudo}
                             </span>
                         </div>
@@ -271,6 +329,20 @@ const ChatPage = () => {
                         isMobile={isMobile}
                     />
                 </div>
+            )}
+
+            {/* ECRAN D'APPEL */}
+            {activeCall && (
+                <CallScreen
+                    socket={socket}
+                    currentUser={user}
+                    targetUser={activeCall.targetUser}
+                    isGroup={activeCall.isGroup}
+                    groupName={activeCall.groupName}
+                    callType={activeCall.callType}
+                    isIncoming={activeCall.isIncoming}
+                    onEnd={() => setActiveCall(null)}
+                />
             )}
 
             {/* Modal nouveau chat */}
@@ -328,7 +400,7 @@ const ChatPage = () => {
                             <Avatar user={u} size={36} showOnline />
                             <div>
                                 <div style={{ fontSize: '13px', fontWeight: 500, color: 'var(--text)' }}>
-                                    @{u.pseudo}
+                                    <span translate="no">@{u.pseudo}</span>
                                 </div>
                                 <div style={{ fontSize: '11px', color: 'var(--text2)' }}>
                                     {u.isOnline ? 'En ligne' : 'Hors ligne'}
@@ -384,7 +456,7 @@ const ChatPage = () => {
                             }}
                         >
                             <Avatar user={u} size={32} />
-                            <span style={{ fontSize: '13px', color: 'var(--text)' }}>
+                            <span translate="no" style={{ fontSize: '13px', color: 'var(--text)' }}>
                                 @{u.pseudo}
                             </span>
                             {selectedUsers.find(s => s.id === u.id) && (
@@ -411,7 +483,7 @@ const ChatPage = () => {
                                         gap: '5px'
                                     }}
                                 >
-                                    @{u.pseudo}
+                                    <span translate="no">@{u.pseudo}</span>
                                     <button
                                         onClick={() => setSelectedUsers(selectedUsers.filter(s => s.id !== u.id))}
                                         style={{

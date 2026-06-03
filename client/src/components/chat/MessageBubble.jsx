@@ -75,15 +75,20 @@ const MessageBubble = ({ message, isOwn, showAvatar, onReact }) => {
 
                             {/* Fleche de bulle */}
                             {isOwn && (
-                                <span style={{
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    color: message.isRead ? 'var(--accent)' : 'inherit'
-                                }}>
-                                    {message.isRead
-                                        ? <CheckCheck size={12} />
-                                        : <Check size={12} />
-                                    }
+                                <span style={{ display: 'flex', alignItems: 'center', marginLeft: '2px' }}>
+                                    {message.isRead ? (
+                                        <CheckCheck
+                                            size={13}
+                                            color="var(--accent)"
+                                            strokeWidth={2.5}
+                                        />
+                                    ) : (
+                                        <Check
+                                            size={13}
+                                            color="rgba(255,255,255,0.5)"
+                                            strokeWidth={2.5}
+                                        />
+                                    )}
                                 </span>
                             )}
 

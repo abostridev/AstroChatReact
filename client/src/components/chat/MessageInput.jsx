@@ -3,7 +3,7 @@ import { uploadFile, uploadAudio } from '../../api/upload'
 import { Smile, Paperclip, Camera, Mic, Send, Square } from 'lucide-react'
 
 
-const MessageInput = ({ onSend, disabled }) => {
+const MessageInput = ({ onSend, disabled, onTyping }) => {
     const [text, setText] = useState('')
     const [recording, setRecording] = useState(false)
     const [uploading, setUploading] = useState(false)
@@ -136,7 +136,10 @@ const MessageInput = ({ onSend, disabled }) => {
                 {/* Champ texte */}
                 <textarea
                     value={text}
-                    onChange={(e) => setText(e.target.value)}
+                    onChange={(e) => {
+                        setText(e.target.value)
+                        onTyping?.()
+                    }}
                     onKeyDown={handleKeyDown}
                     placeholder={recording ? 'Enregistrement...' : 'Message...'}
                     disabled={disabled || uploading || recording}
