@@ -8,11 +8,19 @@ const connectedUsers = new Map()
 
 export const initSocket = (httpServer) => {
   const io = new Server(httpServer, {
-    cors: {
-      origin: process.env.CLIENT_URL || 'http://localhost:3000',
-      credentials: true
-    }
-  })
+  cors: {
+    origin: (origin, callback) => {
+      if (!origin || origin.startsWith('http://localhost')) {
+        callback(null, true)
+      } else if (origin === process.env.CLIENT_URL) {
+        callback(null, true)
+      } else {
+        callback(new Error('Non autorise'))
+      }
+    },
+    credentials: true
+  }
+})
 
   // ─── MIDDLEWARE AUTH SOCKET ───────────────────────────────────
   // Verifie le token JWT avant chaque connexion socket
@@ -395,6 +403,47 @@ export const initSocket = (httpServer) => {
         })
       }
     })
+
+    // Marque les messages comme lus et notifie l'expediteur
+socket.on('messages:read', async ({ conversationId, groupId }) => {
+  try {
+    if (conversationId) {
+      // Met a jour en DB
+      await prisma.message.updateMany({
+        where: {
+          conversationId,
+          isRead: false,
+          senderId: { not: userId }
+        },
+        data: { isRead: true }
+      })
+
+      // Notifie tous les membres de la conversation
+      io.to(`conversation:${conversationId}`).emit('messages:read', {
+        conversationId,
+        readBy: userId
+      })
+    }
+
+    if (groupId) {
+      await prisma.message.updateMany({
+        where: {
+          groupId,
+          isRead: false,
+          senderId: { not: userId }
+        },
+        data: { isRead: true }
+      })
+
+      io.to(`group:${groupId}`).emit('messages:read', {
+        groupId,
+        readBy: userId
+      })
+    }
+  } catch (error) {
+    console.error('Erreur messages:read:', error)
+  }
+})
 
     // ─── DECONNEXION ──────────────────────────────────────────
     socket.on('disconnect', async () => {
