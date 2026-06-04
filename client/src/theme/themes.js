@@ -1,8 +1,4 @@
-// Les deux themes d'AstroChat
-// Chaque valeur est utilisee comme variable CSS dans toute l'app
-
 export const themes = {
-  // Theme par defaut — multicolore dark
   multicolor: {
     name: 'multicolor',
     colors: {
@@ -32,7 +28,6 @@ export const themes = {
     }
   },
 
-  // Theme terre chaude
   warm: {
     name: 'warm',
     colors: {
@@ -60,13 +55,42 @@ export const themes = {
         { bg: '#1a2e28', color: '#5dcaa5', border: '#5dcaa533' }
       ]
     }
+  },
+
+  light: {
+    name: 'light',
+    colors: {
+      bg0: '#f8f7f2',
+      bg1: '#ffffff',
+      bg2: '#f0eee8',
+      bg3: '#e8e5df',
+      accent: '#0077cc',
+      accentRgb: '0, 119, 204',
+      accent2: '#cc0077',
+      accent3: '#007755',
+      accent4: '#cc7700',
+      text: '#1a1a2e',
+      textSecondary: '#666666',
+      textTertiary: '#aaaaaa',
+      bubbleReceived: '#ffffff',
+      bubbleSent: '#0077cc',
+      bubbleSentText: '#ffffff',
+      border: '#e0ddd5',
+      inputBg: '#f5f3ee',
+      avatarColors: [
+        { bg: '#e0f0ff', color: '#0077cc', border: '#0077cc33' },
+        { bg: '#ffe0f0', color: '#cc0077', border: '#cc007733' },
+        { bg: '#fff0e0', color: '#cc7700', border: '#cc770033' },
+        { bg: '#e0fff0', color: '#007755', border: '#00775533' }
+      ]
+    }
   }
 }
 
-// Applique le theme en injectant des variables CSS sur :root
 export const applyTheme = (theme) => {
   const root = document.documentElement
-  const colors = themes[theme].colors
+  const colors = themes[theme]?.colors
+  if (!colors) return
 
   root.style.setProperty('--bg0', colors.bg0)
   root.style.setProperty('--bg1', colors.bg1)
@@ -86,11 +110,9 @@ export const applyTheme = (theme) => {
   root.style.setProperty('--border', colors.border)
   root.style.setProperty('--input-bg', colors.inputBg)
 
-  // Sauvegarde le theme choisi dans localStorage
   localStorage.setItem('astrochat_theme', theme)
 }
 
-// Recupere le theme sauvegarde ou utilise multicolor par defaut
 export const getSavedTheme = () => {
   return localStorage.getItem('astrochat_theme') || 'multicolor'
 }
