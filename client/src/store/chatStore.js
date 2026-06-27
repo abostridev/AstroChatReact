@@ -123,11 +123,12 @@ const useChatStore = create((set, get) => ({
     const newMessages = state.messages.map(msg => {
       if (!replaced && msg.pending && msg.senderId === realMessage.senderId) {
         replaced = true
+        console.log('remplacement ok!')
         return { ...realMessage, pending: false }
       }
       return msg
     })
-
+    console.log('replaced:', replaced)
     return {
       messages: newMessages,
       messagesCache: {

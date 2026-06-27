@@ -101,14 +101,15 @@ const ChatWindow = ({ socket, onStartCall, onBack, isMobile,replaceOptimisticMes
   if (!socket || !active) return
 
   const handleNewMessage = (message) => {
-    if (message.senderId === user.id) {
-      replaceOptimisticMessage(message)
-    } else {
-      addMessage(message)
-      showMessageNotification(message.sender?.pseudo, message)
-    }
+  console.log('message recu:', message.senderId, 'user:', user.id, 'egal:', message.senderId === user.id)
+  if (message.senderId === user.id) {
+    console.log('remplacement optimiste...')
+    replaceOptimisticMessage(message)
+  } else {
+    addMessage(message)
+    showMessageNotification(message.sender?.pseudo, message)
   }
-
+}
   const handleMessagesRead = ({ conversationId, groupId, readBy }) => {
     if (readBy !== user.id) {
       // L'autre a lu nos messages — met a jour les ticks en temps reel
