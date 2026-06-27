@@ -152,32 +152,46 @@ const ConversationList = ({ onSelectConversation, onSelectGroup }) => {
     activeConversation, activeGroup
   } = useChatStore()
 
-  const [loading, setLoading] = useState(true)
-  const [filter, setFilter] = useState('all')
+const [loading, setLoading] = useState( conversations.length === 0 && groups.length === 0 )  
+const [filter, setFilter] = useState('all')
 
   useEffect(() => {
-    const fetchData = async () => {
-      try {
-        const [convData, groupData] = await Promise.all([
-          getConversations(),
-          getGroups()
-        ])
-        setConversations(convData.conversations)
-        setGroups(groupData.groups)
-      } catch (error) {
-        console.error('Erreur chargement conversations:', error)
-      } finally {
-        setLoading(false)
-      }
+  if (conversations.length > 0 || groups.length > 0) {
+    setLoading(false)
+    return
+  }
+
+  const fetchData = async () => {
+    try {
+      const [convData, groupData] = await Promise.all([
+        getConversations(),
+        getGroups()
+      ])
+      setConversations(convData.conversations)
+      setGroups(groupData.groups)
+    } catch (error) {
+      console.error('Erreur chargement conversations:', error)
+    } finally {
+      setLoading(false)
     }
-    fetchData()
-  }, [])
+  }
+
+  fetchData()
+}, [])
 
   // Melange conversations et groupes tries par date
   const allItems = [
-    ...conversations.map(c => ({ ...c, type: 'conversation' })),
-    ...groups.map(g => ({ ...g, type: 'group' }))
-  ].sort((a, b) => new Date(b.updatedAt) - new Date(a.updatedAt))
+  ...conversations.map(c => ({ ...c, type: 'conversation' })),
+  ...groups.map(g => ({ ...g, type: 'group' }))
+].sort((a, b) => {
+  // Les conversations avec messages non lus d'abord
+  const aUnread = a.unreadCount || 0
+  const bUnread = b.unreadCount || 0
+  if (aUnread > 0 && bUnread === 0) return -1
+  if (bUnread > 0 && aUnread === 0) return 1
+  // Ensuite par date du dernier message
+  return new Date(b.updatedAt) - new Date(a.updatedAt)
+})
 
   const filtered = filter === 'all'
     ? allItems
